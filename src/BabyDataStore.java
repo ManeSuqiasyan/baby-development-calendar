@@ -9,11 +9,17 @@ import java.util.Properties;
 public class BabyDataStore {
     private static final Path DATA_FILE = Paths.get("baby-calendar-data.properties");
     private final Properties properties = new Properties();
+    private Path file = DATA_FILE;
 
     public static BabyDataStore load() throws IOException {
+        return load(DATA_FILE);
+    }
+
+    public static BabyDataStore load(Path file) throws IOException {
         BabyDataStore store = new BabyDataStore();
-        if (Files.exists(DATA_FILE)) {
-            try (InputStream input = Files.newInputStream(DATA_FILE)) {
+        store.file = file;
+        if (Files.exists(file)) {
+            try (InputStream input = Files.newInputStream(file)) {
                 store.properties.load(input);
             }
         }
@@ -33,7 +39,8 @@ public class BabyDataStore {
     }
 
     public void save() throws IOException {
-        try (OutputStream output = Files.newOutputStream(DATA_FILE)) {
+        Files.createDirectories(file.toAbsolutePath().getParent());
+        try (OutputStream output = Files.newOutputStream(file)) {
             properties.store(output, "Baby Development Calendar - private local data");
         }
     }

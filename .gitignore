@@ -36,3 +36,7 @@ out/
 
 # Contains the child's name, birth date, notes, growth records, and reminders
 baby-calendar-data.properties
+
+# Parent accounts, password hashes, and per-family child data
+baby-users.properties
+baby-data/
