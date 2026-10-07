@@ -19,17 +19,9 @@ import javax.crypto.spec.PBEKeySpec;
 import java.util.concurrent.*;
 import java.io.*;
 import javax.net.ssl.SSLSocketFactory;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ToolBar;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.web.WebView;
-import javafx.stage.Stage;
 
 /** Starts the Baby Development Calendar web application. */
-public class Main extends Application {
+public class Main {
     private static final int PORT = Integer.getInteger("port", 8080);
     // Listen on all interfaces by default so another device on the local network can connect.
     private static final String BIND_HOST = System.getenv().getOrDefault("BDC_BIND_HOST", "0.0.0.0");
@@ -41,36 +33,12 @@ public class Main extends Application {
     private static HttpServer server;
     private static ScheduledExecutorService reminderExecutor;
 
-    public static void main(String[] args) {
-        launch(args);
+    public static void main(String[] args) throws IOException {
+        startServer();
     }
 
-    @Override
-    public void start(Stage stage) throws IOException {
-        startWebServer();
-
-        WebView browser = new WebView();
-        browser.getEngine().load("http://localhost:" + PORT);
-        Button refresh = new Button("Թարմացնել");
-        refresh.setOnAction(event -> browser.getEngine().reload());
-        Label address = new Label("http://localhost:" + PORT);
-        BorderPane root = new BorderPane(browser);
-        root.setTop(new ToolBar(refresh, address));
-
-        stage.setTitle("Մանկիկի զարգացման օրացույց");
-        stage.setMinWidth(800);
-        stage.setMinHeight(600);
-        stage.setScene(new Scene(root, 1180, 820));
-        stage.show();
-    }
-
-    @Override
-    public void stop() {
-        if (server != null) server.stop(0);
-        if (reminderExecutor != null) reminderExecutor.shutdownNow();
-    }
-
-    private static void startWebServer() throws IOException {
+    public static synchronized void startServer() throws IOException {
+        if (server != null) return;
         store = BabyDataStore.load();
         if (Files.exists(USERS_FILE)) try (var in=Files.newInputStream(USERS_FILE)) { users.load(in); }
         server = HttpServer.create(new InetSocketAddress(BIND_HOST, PORT), 0);
@@ -93,6 +61,21 @@ public class Main extends Application {
         } catch (Exception e) {
             System.out.println("Find this computer's local IPv4 address and open http://<IP>:" + PORT);
         }
+    }
+
+    public static synchronized void stopServer() {
+        if (server != null) {
+            server.stop(0);
+            server = null;
+        }
+        if (reminderExecutor != null) {
+            reminderExecutor.shutdownNow();
+            reminderExecutor = null;
+        }
+    }
+
+    public static int getPort() {
+        return PORT;
     }
 
     private static synchronized void handle(HttpExchange x) throws IOException {
