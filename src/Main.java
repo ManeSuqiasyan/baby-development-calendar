@@ -2,6 +2,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.Inet4Address;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -21,7 +23,8 @@ import javax.net.ssl.SSLSocketFactory;
 /** Starts the Baby Development Calendar web application. */
 public class Main {
     private static final int PORT = Integer.getInteger("port", 8080);
-    private static final String BIND_HOST = System.getenv().getOrDefault("BDC_BIND_HOST", "localhost");
+    // Listen on all interfaces by default so another device on the local network can connect.
+    private static final String BIND_HOST = System.getenv().getOrDefault("BDC_BIND_HOST", "0.0.0.0");
     private static BabyDataStore store;
     private static final Path USERS_FILE = Paths.get("baby-users.properties");
     private static final Map<String,String> sessions = new ConcurrentHashMap<>();
@@ -34,7 +37,21 @@ public class Main {
         server.createContext("/", Main::handle);
         server.start();
         Executors.newSingleThreadScheduledExecutor(r -> { Thread t=new Thread(r,"email-reminders"); t.setDaemon(true); return t; }).scheduleAtFixedRate(Main::sendDueReminders, 30, 60, TimeUnit.SECONDS);
-        System.out.println("Open http://localhost:" + PORT + " to use Baby Development Calendar.");
+        System.out.println("On this computer: http://localhost:" + PORT);
+        System.out.println("On another device on the same network, open one of these addresses:");
+        try {
+            for (var interfaces = NetworkInterface.getNetworkInterfaces(); interfaces != null && interfaces.hasMoreElements();) {
+                NetworkInterface network = interfaces.nextElement();
+                if (!network.isUp() || network.isLoopback()) continue;
+                for (var addresses = network.getInetAddresses(); addresses.hasMoreElements();) {
+                    var address = addresses.nextElement();
+                    if (address instanceof Inet4Address && !address.isLoopbackAddress())
+                        System.out.println("http://" + address.getHostAddress() + ":" + PORT);
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Find this computer's local IPv4 address and open http://<IP>:" + PORT);
+        }
     }
 
     private static synchronized void handle(HttpExchange x) throws IOException {
